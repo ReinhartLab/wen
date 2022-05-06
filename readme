@@ -1,0 +1,6 @@
+#DICS_compute_ww.py
+calculate 12Hz
+#DICS_compute_freq_ww.py
+loop each freq band
+#DICS_compute_freq_ww_parallel.py
+loop each freq band in parallel
