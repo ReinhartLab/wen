@@ -33,23 +33,23 @@ fprintf('Registration removed %d ppts\n',length(rmvID));
 %%
 subN = height(MEGsum);
 
-freqStr = {'Theta','Alpha'};%,'Beta','Gamma','HighGamma'};
+freqStr = {'5Hz','10Hz'};%,'Beta','Gamma','HighGamma'};
 FN = length(freqStr);
 for sub_i = 1:subN
     subname = MEGsum.participant_id(sub_i,:);
 
     for fi = 1:FN
-        corrFile = fullfile(dataDir,['sub-' subname],'mri','shen_corr',['shen_corr_',freqStr{fi},'.mat']);
+        corrFile = fullfile(dataDir,['sub-' subname],'mri','shen_corr',['shen_corr_',freqStr{fi},'_lcmv.mat']);
         if isfile(corrFile)
             load(corrFile)
-            MEGsum.corr{sub_i,fi} = squeeze(corMat(1,2:end,2:end));%first [0 0 0]
+            MEGsum.corr{sub_i,fi} = squeeze(corMat(2:end,2:end));%first [0 0 0]
             MEGsum.corr{sub_i,fi} = atanh(MEGsum.corr{sub_i,fi}); % fisherZtransform
         end
     end
 end
 
 tmp = cellfun(@isempty,MEGsum.corr(:,1),'UniformOutput',false);
-MEGsum(cell2mat(tmp),:) = [];
+MEGsum(cell2mat(tmp),:) = [];su
 
 %%
 % ageGroup.Bin = [18 35 50 65 90];
@@ -65,14 +65,14 @@ for ageID = 1:length(ageGroup.N)
         p = nan(length(tmp_array),1);
         t = p;
         parfor i = 1:length(tmp_array)
-            [~,p(i),~,stat] = ttest(tmp_array(i,:),0,'Alpha',.05,'tail','both');
+            [~,p(i),~,stat] = ttest(tmp_array(i,:),0,'Alpha',.01,'tail','right');
             t(i) = stat.tstat;
         end
 
         p = reshape(p,tmp(1),tmp(2));
         fdR.t{ageID,fi} = reshape(t,tmp(1),tmp(2));
 
-        [fdR.h{ageID,fi}, fdR.crit_p{ageID,fi}, fdR.adj_ci_cvrg{ageID,fi}, fdR.adj_p{ageID,fi}]=fdr_bh(p,0.05,'pdep','yes');
+        [fdR.h{ageID,fi}, fdR.crit_p{ageID,fi}, fdR.adj_ci_cvrg{ageID,fi}, fdR.adj_p{ageID,fi}]=fdr_bh(p,0.01,'pdep','yes');
     end
 end
 
@@ -102,16 +102,6 @@ for ageID = 1:length(ageGroup.N)
         dat = fdR.t{ageID,fi}.*fdR.h{ageID,fi};
         dat = dat(sort_index,sort_index);
 
-        x = repmat(shen_net_table,209,1);
-
-y = sortrows(x(:,'node'));
-y.Properties.VariableNames{'node'} = 'node2';
-t  = [x y] ;
-t.value = reshape(dat,size(dat,1)*size(dat,2),1);
-t(isnan(t.value) | t.value==0,:) = [];% remove insignificant connections
-
-
-
         uniqIA2 = [uniqIA;210];
         for i = 1:length(uniqIA)
             for j = 1:length(uniqIA)
@@ -122,7 +112,7 @@ t(isnan(t.value) | t.value==0,:) = [];% remove insignificant connections
         imagesc(dat);
         cb = colorbar;
         cb.Title.String = 't-value';
-        caxis([5 20])
+        caxis([0 10])
         colormap jet
         for i = 1:length(uniqIA)-1
             plot(get(gca,'ylim'),[uniqIA(i+1) uniqIA(i+1)],'k','HandleVisibility','off')
@@ -143,9 +133,11 @@ for ageID = 1:length(ageGroup.N)
 
         dat  = squeeze(netCon(ageID,fi,:,:));
         imagesc(dat);
+        colormap jet
+
         cb = colorbar;
         cb.Title.String = 't-value';
-        caxis([8 16])
+        caxis([2 8])
 
         set(gca,'ydir','normal','xlim',[1 length(uniqName)],'ylim',[1 length(uniqName)],'xticklabel',uniqName,'yticklabel',uniqName)
         xlabel('Network');ylabel('Network')
@@ -171,7 +163,7 @@ for fi = 1:FN
     AgeCorr.h{fi} = AgeCorr.p{fi}<.05;
 
     AgeCorr.rho{fi} = reshape(rho,tmp(1),tmp(2));
-%     AgeCorr.hPN{fi} = (AgeCorr.p{fi}<.05 & AgeCorr.rho{fi}>0) - (AgeCorr.p{fi}<.05 & AgeCorr.rho{fi}<0);
+    %     AgeCorr.hPN{fi} = (AgeCorr.p{fi}<.05 & AgeCorr.rho{fi}>0) - (AgeCorr.p{fi}<.05 & AgeCorr.rho{fi}<0);
 
 end
 
@@ -202,7 +194,6 @@ for  fi = 1:FN
 
 end
 
-
 for  fi = 1:FN
     subplot(2,FN,fi+2);
     axis square;hold all
@@ -219,5 +210,4 @@ for  fi = 1:FN
     xtickangle(45)
     title(sprintf('(N=%d),%s',height(MEGsum),freqStr{fi}))
 end
-
 

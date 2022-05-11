@@ -76,10 +76,10 @@ def forward_model(subject, subjects_dir, fname_meg, trans, src, fwd_fname):
 
 def run_correlation(raw_MEG, cov, fwd, subjects_dir, subject, freq):
 
-    data_cov = mne.compute_raw_covariance(raw_MEG)
+    data_cov = mne.compute_raw_covariance(raw_MEG, n_jobs=1)
     filters = make_lcmv(raw_MEG.info, fwd, data_cov, 0.05, cov,
                             pick_ori='max-power', weight_norm='nai')
-    raw_MEG = raw_MEG.apply_hilbert()
+    raw_MEG = raw_MEG.apply_hilbert(n_jobs=1)
 
     stcs = apply_lcmv_raw(raw_MEG, filters, verbose=True)
 
@@ -111,10 +111,13 @@ def run_correlation(raw_MEG, cov, fwd, subjects_dir, subject, freq):
 
     del raw_MEG, csd, stcs, all_corr, label_stc, filters, fwd
 
+def num_threads(nt):
+    nt = str(nt)
+    os.environ["OMP_NUM_THREADS"] = nt
 
 def run_subject_in_parallel(subjects_dir, subject, volume_spacing, freq):
     
-
+    num_threads(10)
     DATA_DIR = Path(f'{subjects_dir}', f'{subject}', 'mne_files')
     eye_proj1 = f'{DATA_DIR}/{subject}_eyes1-proj.fif.gz'
     eye_proj2 = f'{DATA_DIR}/{subject}_eyes2-proj.fif.gz'
@@ -203,7 +206,7 @@ def run_subject_in_parallel(subjects_dir, subject, volume_spacing, freq):
     print('High-pass filtering data at 0.5 Hz')
     raw_proj_filtered = raw_proj_applied.filter(l_freq=0.5, h_freq=None, method='iir')
 
-    cov = mne.compute_raw_covariance(raw_proj_filtered)
+    cov = mne.compute_raw_covariance(raw_proj_filtered, n_jobs=1)
 
     l_freq = freq - 2.0
     h_freq = freq + 2.0
@@ -217,17 +220,17 @@ def run_subject_in_parallel(subjects_dir, subject, volume_spacing, freq):
 #---------------------------------------Main Program starts here-----------------------------#
 # Run 15 subjects in parallel for Theta band
 
-cases = '/home/senthilp/caesar/camcan/cc700/freesurfer_output/30to39.txt'
+cases = '/home/senthilp/caesar/camcan/cc700/freesurfer_output/full.txt'
 subjects_dir = '/home/senthilp/caesar/camcan/cc700/freesurfer_output'
 with open(cases) as f:
      case_list = f.read().splitlines()
 
-freq = 5
+freq = 20 # [5 10 20 40 60]
 
 @timefn
 def main():
     volume_spacing = 7.8
-    pool = mp.Pool(processes=12) # Run 15 subjects in parallel
+    pool = mp.Pool(processes=15) # Run 15 subjects in parallel
     for subject in case_list:
         if not os.path.exists(os.path.join(subjects_dir,subject,'mri','shen_corr',f'shen_corr_{freq}Hz_lcmv.mat')):
             pool.apply_async(run_subject_in_parallel, args=[subjects_dir, subject, volume_spacing, freq])
