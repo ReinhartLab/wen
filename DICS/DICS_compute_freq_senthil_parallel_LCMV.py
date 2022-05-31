@@ -74,7 +74,7 @@ def forward_model(subject, subjects_dir, fname_meg, trans, src, fwd_fname):
     mne.write_forward_solution(fwd_fname, fwd, overwrite=True, verbose=None)
 
 
-def run_correlation(raw_MEG, cov, fwd, subjects_dir, subject, freq):
+def run_correlation(raw_MEG, cov, fwd, subjects_dir, subject, freq, label_map):
 
     data_cov = mne.compute_raw_covariance(raw_MEG, n_jobs=1)
     filters = make_lcmv(raw_MEG.info, fwd, data_cov, 0.05, cov,
@@ -86,7 +86,7 @@ def run_correlation(raw_MEG, cov, fwd, subjects_dir, subject, freq):
     print('Extracting label time course...')
     atlas = f'{subjects_dir}/{subject}/mri/shen_freesurfer.mgz'# obtained from /home/senthilp/caesar/camcan/cc700/freesurfer_output/scripts/ants.sh
 
-    label_stc = mne.extract_label_time_course(stcs, atlas, fwd['src'], return_generator=False, verbose=True, mri_resolution=True)
+    label_stc = mne.extract_label_time_course(stcs, (atlas, label_map), fwd['src'], return_generator=False, verbose=True, mri_resolution=True)
     label_stc = [label_stc]
 
     # Power Envelope Correlation
@@ -115,7 +115,7 @@ def num_threads(nt):
     nt = str(nt)
     os.environ["OMP_NUM_THREADS"] = nt
 
-def run_subject_in_parallel(subjects_dir, subject, volume_spacing, freq):
+def run_subject_in_parallel(subjects_dir, subject, volume_spacing, freq, label_map):
     
     num_threads(10)
     DATA_DIR = Path(f'{subjects_dir}', f'{subject}', 'mne_files')
@@ -214,7 +214,7 @@ def run_subject_in_parallel(subjects_dir, subject, volume_spacing, freq):
     raw_MEG = raw_proj_filtered.filter(l_freq=l_freq, h_freq=h_freq)
 
 
-    run_correlation(raw_MEG, cov, fwd, subjects_dir, subject, freq)
+    run_correlation(raw_MEG, cov, fwd, subjects_dir, subject, freq, label_map)
 
 
 #---------------------------------------Main Program starts here-----------------------------#
@@ -225,17 +225,30 @@ subjects_dir = '/home/senthilp/caesar/camcan/cc700/freesurfer_output'
 with open(cases) as f:
      case_list = f.read().splitlines()
 
-freq = 20 # [5 10 20 40 60]
 
+b = list(np.arange(1,269))
+a = [str(val) for val in b]
+label_map = dict(zip(a, b))
+
+freqList = [4,8,12,16,20,24,32,64]
 @timefn
 def main():
     volume_spacing = 7.8
-    pool = mp.Pool(processes=15) # Run 15 subjects in parallel
-    for subject in case_list:
-        if not os.path.exists(os.path.join(subjects_dir,subject,'mri','shen_corr',f'shen_corr_{freq}Hz_lcmv.mat')):
-            pool.apply_async(run_subject_in_parallel, args=[subjects_dir, subject, volume_spacing, freq])
-    pool.close()
-    pool.join()
+    for freq in freqList:
+        pool = mp.Pool(processes=4)
+        for subject in case_list:
+            flag = 0
+            if not os.path.exists(os.path.join(subjects_dir,subject,'mri','shen_corr',f'shen_corr_{freq}Hz_lcmv.npy')):
+                flag = 1
+            else:
+                tmpA=np.load(f'{subjects_dir}/{subject}/mri/shen_corr/shen_corr_{freq}Hz_lcmv.npy')
+                if tmpA.shape[0]<268:
+                    flag = 1
+
+            if flag==1:
+                pool.apply_async(run_subject_in_parallel, args=[subjects_dir, subject, volume_spacing, freq, label_map])
+        pool.close()    
+        pool.join() 
 
 
 if __name__ == "__main__":

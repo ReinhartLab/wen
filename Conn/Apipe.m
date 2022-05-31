@@ -7,15 +7,17 @@ cogBeha
 
 interHemichanges
 % % EnvCorr_sensorimotor
-%% CPM
-
-attCPM
-totCPM
-totCPM_freq
-senmoCPM
-gFcpm
 
 %%
+NodeCorrAgeFreq
 AgeConnMatrix
-genLink4Circos
+AgeGraphyT
+
+
+%% CPM
+
+CPM_gF
+attCPM
+totCPM_freq
+senmoCPM
 

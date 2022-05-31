@@ -1,9 +1,0 @@
-network,start,end
-DMN,1,2400
-FPN,1,2900
-MFN,1,1600
-MON,1,5800
-SC,1,4200
-VA,1,1700
-VisI,1,700
-VisII,1,1500
